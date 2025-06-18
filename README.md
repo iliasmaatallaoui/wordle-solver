@@ -59,7 +59,7 @@ Average performance metrics:
 
 1. Clone the repository:
 ```bash
-git clone [your-repo-url]
+git clone https://github.com/iliasmaatallaoui/wordle-solver
 ```
 
 2. Install requirements:
