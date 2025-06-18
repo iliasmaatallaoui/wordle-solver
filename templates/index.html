@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle Solver</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .letter-tile {
+            width: 60px;
+            height: 60px;
+            font-size: 2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid #d3d6da;
+            margin: 0 5px;
+        }
+        
+        .letter-tile.green {
+            background-color: #6aaa64;
+            border-color: #6aaa64;
+            color: white;
+        }
+        
+        .letter-tile.yellow {
+            background-color: #c9b458;
+            border-color: #c9b458;
+            color: white;
+        }
+        
+        .letter-tile.gray {
+            background-color: #787c7e;
+            border-color: #787c7e;
+            color: white;
+        }
+        
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            margin: 5px 0;
+        }
+        
+        .key {
+            font-size: 1rem;
+            font-weight: bold;
+            padding: 15px 10px;
+            margin: 0 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            min-width: 30px;
+            text-align: center;
+            background-color: #d3d6da;
+            color: #1a1a1b;
+            user-select: none;
+        }
+        
+        .key.green {
+            background-color: #6aaa64;
+            color: white;
+        }
+        
+        .key.yellow {
+            background-color: #c9b458;
+            color: white;
+        }
+        
+        .key.gray {
+            background-color: #787c7e;
+            color: white;
+        }
+        
+        .history-entry {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 5px;
+        }
+
+        .pulse {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto max-w-3xl px-4 py-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Wordle Solver</h1>
+            <p class="text-gray-600">Get suggestions for your Wordle game</p>
+        </header>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-700">Current Suggestion</h2>
+                <button id="resetButton" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md">
+                    Start Over
+                </button>
+            </div>
+            
+            <div class="flex flex-col items-center mb-6">
+                <div id="suggestedWordContainer" class="flex justify-center mb-4">
+                    <!-- Suggested word tiles will be inserted here -->
+                </div>
+                
+                <div class="flex space-x-4">
+                    <button id="nextSuggestionButton" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md">
+                        Next Suggestion
+                    </button>
+                    <button id="useThisWordButton" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md pulse">
+                        Use This Word
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="feedbackSection" class="bg-white rounded-lg shadow-lg p-6 mb-6 hidden">
+            <h2 class="text-xl font-bold text-gray-700 mb-4">Enter Feedback</h2>
+            
+            <div class="mb-4">
+                <p class="text-gray-600 mb-2">Select color for each letter:</p>
+                <div id="feedbackWordContainer" class="flex justify-center mb-4">
+                    <!-- Feedback word tiles will be inserted here -->
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <div class="keyboard-row">
+                    <div class="key" data-color="gray">Gray</div>
+                    <div class="key" data-color="yellow">Yellow</div>
+                    <div class="key" data-color="green">Green</div>
+                </div>
+            </div>
+            
+            <div class="text-center">
+                <button id="submitFeedbackButton" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-md font-bold">
+                    Submit Feedback
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-700 mb-2">Guess History</h2>
+            <div id="historyContainer" class="flex flex-col items-center">
+                <!-- History entries will be inserted here -->
+                <p class="text-gray-500 italic">No guesses yet</p>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-700">Possible Words</h2>
+                <span id="wordCount" class="bg-gray-200 px-3 py-1 rounded-full text-gray-700 font-medium">0 words</span>
+            </div>
+            <div id="remainingWordsContainer" class="flex flex-wrap gap-2">
+                <!-- Remaining words will be inserted here -->
+                <p class="text-gray-500 italic">Loading words...</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="text-center py-4 text-gray-500 text-sm">
+        <p>Instructions: Use the suggested word in Wordle, then provide feedback about which letters were correct.</p>
+        <p class="mt-1">Green = correct letter in correct position, Yellow = correct letter in wrong position, Gray = letter not in word.</p>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let currentGuess = '';
+            let currentFeedback = '';
+            
+            // Initial load
+            fetchSuggestion();
+            
+            // Event listeners
+            document.getElementById('resetButton').addEventListener('click', resetGame);
+            document.getElementById('nextSuggestionButton').addEventListener('click', getNextSuggestion);
+            document.getElementById('useThisWordButton').addEventListener('click', useCurrentWord);
+            document.getElementById('submitFeedbackButton').addEventListener('click', submitFeedback);
+            
+            // Function to fetch initial suggestion
+            function fetchSuggestion() {
+                fetch('/api/get_suggestion')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            currentGuess = data.next_guess;
+                            updateSuggestedWord(currentGuess);
+                            updateRemainingWords(data.remaining_words, data.remaining_count);
+                        }
+                    })
+                    .catch(error => console.error('Error fetching suggestion:', error));
+            }
+            
+            // Function to reset the game
+            function resetGame() {
+                fetch('/api/reset', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentGuess = data.next_guess;
+                        updateSuggestedWord(currentGuess);
+                        updateRemainingWords(data.remaining_words, data.remaining_count);
+                        document.getElementById('historyContainer').innerHTML = '<p class="text-gray-500 italic">No guesses yet</p>';
+                        document.getElementById('feedbackSection').classList.add('hidden');
+                    }
+                })
+                .catch(error => console.error('Error resetting game:', error));
+            }
+            
+            // Function to get next suggestion
+            function getNextSuggestion() {
+                fetch('/api/next_suggestion', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentGuess = data.next_guess;
+                        updateSuggestedWord(currentGuess);
+                    }
+                })
+                .catch(error => console.error('Error getting next suggestion:', error));
+            }
+            
+            // Function to use current word and show feedback UI
+            function useCurrentWord() {
+                document.getElementById('feedbackSection').classList.remove('hidden');
+                
+                // Create feedback tiles
+                const feedbackContainer = document.getElementById('feedbackWordContainer');
+                feedbackContainer.innerHTML = '';
+                
+                for (let i = 0; i < currentGuess.length; i++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'letter-tile gray'; // Default to gray
+                    tile.textContent = currentGuess[i];
+                    tile.dataset.index = i;
+                    tile.dataset.letter = currentGuess[i];
+                    tile.addEventListener('click', cycleTileColor);
+                    feedbackContainer.appendChild(tile);
+                }
+                
+                // Initialize feedback string to all gray
+                currentFeedback = 'bbbbb';
+                
+                // Scroll to feedback section
+                document.getElementById('feedbackSection').scrollIntoView({ behavior: 'smooth' });
+            }
+            
+            // Function to handle clicking on color keys
+            document.addEventListener('click', function(event) {
+                if (event.target.classList.contains('key')) {
+                    const color = event.target.dataset.color;
+                    const tiles = document.querySelectorAll('#feedbackWordContainer .letter-tile');
+                    
+                    tiles.forEach(tile => {
+                        // Remove existing color classes
+                        tile.classList.remove('green', 'yellow', 'gray');
+                        
+                        // Add the selected color class
+                        tile.classList.add(color);
+                        
+                        // Update feedback string
+                        const index = parseInt(tile.dataset.index);
+                        if (color === 'green') {
+                            currentFeedback = setCharAt(currentFeedback, index, 'g');
+                        } else if (color === 'yellow') {
+                            currentFeedback = setCharAt(currentFeedback, index, 'y');
+                        } else {
+                            currentFeedback = setCharAt(currentFeedback, index, 'b');
+                        }
+                    });
+                }
+            });
+            
+            // Function to cycle through tile colors on click
+            function cycleTileColor() {
+                const index = parseInt(this.dataset.index);
+                console.log("Cycling color for index:", index);
+                
+                // Remove all color classes
+                this.classList.remove('green', 'yellow', 'gray');
+                
+                if (currentFeedback[index] === 'b') {
+                    this.classList.add('green');
+                    currentFeedback = setCharAt(currentFeedback, index, 'g');
+                    console.log("Set to green:", currentFeedback);
+                } else if (currentFeedback[index] === 'g') {
+                    this.classList.add('yellow');
+                    currentFeedback = setCharAt(currentFeedback, index, 'y');
+                    console.log("Set to yellow:", currentFeedback);
+                } else {
+                    this.classList.add('gray');
+                    currentFeedback = setCharAt(currentFeedback, index, 'b');
+                    console.log("Set to gray:", currentFeedback);
+                }
+            }
+            
+            // Function to submit feedback
+            function submitFeedback() {
+                console.log("Submit feedback called");
+                console.log("Guess:", currentGuess);
+                console.log("Feedback:", currentFeedback);
+                
+                // Initialize feedback if it wasn't set
+                if (!currentFeedback || currentFeedback.length !== 5) {
+                    currentFeedback = 'bbbbb';
+                    
+                    // Update the visual state of tiles
+                    const tiles = document.querySelectorAll('#feedbackWordContainer .letter-tile');
+                    tiles.forEach(tile => {
+                        tile.classList.add('gray');
+                    });
+                }
+                
+                fetch('/api/submit_feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        guess: currentGuess,
+                        feedback: currentFeedback
+                    })
+                })
+                .then(response => {
+                    console.log("Response received:", response);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Data received:", data);
+                    if (data.success) {
+                        document.getElementById('feedbackSection').classList.add('hidden');
+                        updateHistory(data.history);
+                        currentGuess = data.next_guess;
+                        updateSuggestedWord(currentGuess);
+                        updateRemainingWords(data.remaining_words, data.remaining_count);
+                        
+                        // If all green, show congratulations
+                        if (currentFeedback === 'ggggg') {
+                            alert('Congratulations! You solved the Wordle!');
+                        }
+                    } else {
+                        alert("Error: " + (data.message || "Failed to process feedback"));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error submitting feedback:', error);
+                    alert("Failed to submit feedback. Check console for details.");
+                });
+            }
+            
+            // Helper function to set character at index in string
+            function setCharAt(str, index, chr) {
+                if (index > str.length - 1) return str;
+                return str.substring(0, index) + chr + str.substring(index + 1);
+            }
+            
+            // Function to update suggested word display
+            function updateSuggestedWord(word) {
+                const container = document.getElementById('suggestedWordContainer');
+                container.innerHTML = '';
+                
+                for (let i = 0; i < word.length; i++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'letter-tile';
+                    tile.textContent = word[i];
+                    container.appendChild(tile);
+                }
+            }
+            
+            // Function to update remaining words display
+            function updateRemainingWords(words, count) {
+                const container = document.getElementById('remainingWordsContainer');
+                container.innerHTML = '';
+                
+                document.getElementById('wordCount').textContent = `${count} words`;
+                
+                if (words.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 italic">No possible words remaining</p>';
+                    return;
+                }
+                
+                words.forEach(word => {
+                    const wordElement = document.createElement('span');
+                    wordElement.className = 'bg-gray-200 px-3 py-1 rounded-md text-gray-700';
+                    wordElement.textContent = word;
+                    container.appendChild(wordElement);
+                });
+            }
+            
+            // Function to update history display
+            function updateHistory(history) {
+                const container = document.getElementById('historyContainer');
+                container.innerHTML = '';
+                
+                if (!history || history.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 italic">No guesses yet</p>';
+                    return;
+                }
+                
+                history.forEach(entry => {
+                    const historyEntry = document.createElement('div');
+                    historyEntry.className = 'history-entry';
+                    
+                    for (let i = 0; i < entry.guess.length; i++) {
+                        const tile = document.createElement('div');
+                        tile.className = 'letter-tile';
+                        tile.textContent = entry.guess[i];
+                        
+                        if (entry.feedback[i] === 'g') {
+                            tile.classList.add('green');
+                        } else if (entry.feedback[i] === 'y') {
+                            tile.classList.add('yellow');
+                        } else {
+                            tile.classList.add('gray');
+                        }
+                        
+                        historyEntry.appendChild(tile);
+                    }
+                    
+                    container.appendChild(historyEntry);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
